@@ -64,61 +64,63 @@
           </tbody></table>
           <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
             
-            <tr onmouseout="fusionsense_stop()" onmouseover="fusionsense_start()" style="background-color: #e3c5b2f1;">
-              <td style="padding:20px;width:25%;vertical-align:middle">
-                <div class="one">
-                  <div class="two" id='fusionsense_after'>
-                    <video width=100% height=100% id="fusionsense_video" muted autoplay loop>
-                      <source src="./images/fusionsense/fusionsense_after.mp4" type="video/mp4">
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>
-                  
-                  <img src='./images/fusionsense/fusionsense_before.jpg' width="160" height="160" id="fusionsense_image">
+          <tr onmouseout="fusionsense_stop()" onmouseover="fusionsense_start()" style="background-color: #e3c5b2f1;">
+            <td style="padding:20px;width:25%;vertical-align:middle">
+              <div class="one">
+                <div class="two" id='fusionsense_after'>
+                  <video width=100% height=100% id="fusionsense_video" muted autoplay loop>
+                    <source src="./images/fusionsense/fusionsense_after.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                  </video>
                 </div>
-                <script type="text/javascript">
 
-                  function fusionsense_start() {
-                    document.getElementById('fusionsense_image').style.opacity = "1";
-                  }
-  
-                  function fusionsense_stop() {
-                    document.getElementById('fusionsense_after').style.opacity = "0";
-                    document.getElementById('fusionsense_video').pause(); // somehow this can prevent jittering
-                    document.getElementById('fusionsense_video').currentTime = 0;
-                  }
-                  fusionsense_stop()
-                </script>
-              </td>
-              <td style="padding:20px;width:75%;vertical-align:middle">
-                <a href="https://ai4ce.github.io/FusionSense/">
-                  <papertitle>FusionSense: Bridging Common Sense, Vision, and Touch for Robust Sparse-View Reconstruction</papertitle>
-                </a>
-                <br>
-                <a href="https://irvingf7.github.io/">Irving Fang*</a>
-                <strong> Kairui Shi*</strong>,
-                <a href="https://www.linkedin.com/in/kim-he-064a36258/">Xujin He*</a>,
-                <a href="https:">Siqi Tan</a>,
-                <a href="https:">Yifan Wang</a>,
-                <a href="https://www.linkedin.com/in/hanwen-zhao-2523a4104/">Hanwen Zhao</a>,
-                <a href="https://joehjhuang.github.io">Hung-Jui Huang</a>,
-                <a href="https://scholar.google.com/citations?user=SNqm6doAAAAJ&hl=en">Wenzhen Yuan</a>,
-                <a href="https://scholar.google.com/citations?user=YeG8ZM0AAAAJ">Chen Feng</a>,
-                <a href="https://jingz6676.github.io">Jing Zhang</a>,
-                (* for equal contribution)
-                <br>
-                <em>ICRA</em>, 2025(Under Review).
-                <br>
-                <a href="https://ai4ce.github.io/FusionSense/">project page</a>
-                /
-                <a href="https://arxiv.org/abs/2403.13171">arXiv</a>
-                /
-                <a href="https://github.com/ai4ce/FusionSense">code</a>
+                <img src='./images/fusionsense/fusionsense_before.jpg' width="160" height="160" id="fusionsense_image">
+              </div>
+              <script type="text/javascript">
                 
-                
-                <p>Reconstruct visually and geometrically accurate scene and object from sparse-view RGB-D images, enhanced with tactile sensing.</p>
-              </td>
-            </tr>
+                function fusionsense_start() {
+                  // when mouse is over the image, make the video visible and the image invisible
+                  document.getElementById('fusionsense_after').style.opacity = "1";
+                  document.getElementById('fusionsense_video').play(); // somehow this can prevent jittering
+                }
+
+                function fusionsense_stop() {
+                  document.getElementById('fusionsense_after').style.opacity = "0";
+                  document.getElementById('fusionsense_video').pause(); // somehow this can prevent jittering
+                  document.getElementById('fusionsense_video').currentTime = 0;
+                }
+                fusionsense_stop()
+              </script>
+            </td>
+            <td style="padding:20px;width:75%;vertical-align:middle">
+              <a href="https://ai4ce.github.io/FusionSense/">
+                <papertitle>FusionSense: Bridging Common Sense, Vision, and Touch for Robust Sparse-View Reconstruction</papertitle>
+              </a>
+              <br>
+              <a href="https://irvingf7.github.io/">Irving Fang*</a>
+              <strong> Kairui Shi*</strong>,
+              <a href="https://www.linkedin.com/in/kim-he-064a36258/">Xujin He*</a>,
+              <a href="https:">Siqi Tan</a>,
+              <a href="https:">Yifan Wang</a>,
+              <a href="https://www.linkedin.com/in/hanwen-zhao-2523a4104/">Hanwen Zhao</a>,
+              <a href="https://joehjhuang.github.io">Hung-Jui Huang</a>,
+              <a href="https://scholar.google.com/citations?user=SNqm6doAAAAJ&hl=en">Wenzhen Yuan</a>,
+              <a href="https://scholar.google.com/citations?user=YeG8ZM0AAAAJ">Chen Feng</a>,
+              <a href="https://jingz6676.github.io">Jing Zhang</a>,
+              (* for equal contribution)
+              <br>
+              <em>ICRA</em>, 2025(Under Review).
+              <br>
+              <a href="https://ai4ce.github.io/FusionSense/">project page</a>
+              /
+              <a href="https://arxiv.org/abs/2403.13171">arXiv</a>
+              /
+              <a href="https://github.com/ai4ce/FusionSense">code</a>
+              
+              
+              <p>Reconstruct visually and geometrically accurate scene and object from sparse-view RGB-D images, enhanced with tactile sensing.</p>
+            </td>
+          </tr>
   
           <!-- <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
               <tr>
