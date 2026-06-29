@@ -150,6 +150,15 @@ tr.paper-row {
   background-color: var(--surface);
 }
 
+code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  background: var(--border);
+  color: var(--heading);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
 /* Dark mode toggle button */
 #theme-toggle {
   position: fixed;
