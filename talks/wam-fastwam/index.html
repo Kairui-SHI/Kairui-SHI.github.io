@@ -101,10 +101,11 @@ if(__exports != exports)module.exports = exports;return module.exports}));
 <main class="shell"><article class="paper" id="reader"><p>正在加载讲稿与公式渲染器…</p></article></main>
 <script id="md-source" type="text/plain"># WAM 与 Fast-WAM 学习博客
 
-> 形式：直接打开两篇论文 PDF 讲解，不使用 PPT  
-> 建议时长：正文 48–52 分钟，讨论 8–12 分钟  
-> 核心论文：*World Action Models: The Next Frontier in Embodied AI*  
-> Case study：*Fast-WAM: Do World Action Models Need Test-time Future Imagination?*
+> 形式：直接打开三篇论文 PDF 讲解，不使用 PPT<br>
+> 建议时长：完整博客内容超过一小时；现场按第 27 节压缩<br>
+> 背景论文：*World Action Models: The Next Frontier in Embodied AI*<br>
+> 核心论文：*World Action Models are Zero-shot Policies* (DreamZero)<br>
+> 核心论文：*Fast-WAM: Do World Action Models Need Test-time Future Imagination?*
 
 ---
 
@@ -123,12 +124,13 @@ if(__exports != exports)module.exports = exports;return module.exports}));
 - `[转场]`：连接前后章节的句子。
 - `[讨论]`：适合留到最后问听众。
 
-### 建议提前打开的两个文件
+### 建议提前打开的三个文件
 
 1. `World Action Models: The Next Frontier in Embodied AI`，arXiv:2605.12090。
-2. `Fast-WAM: Do World Action Models Need Test-time Future Imagination?`，arXiv:2603.16666。
+2. `World Action Models are Zero-shot Policies` (DreamZero)，arXiv:2602.15922。
+3. `Fast-WAM: Do World Action Models Need Test-time Future Imagination?`，arXiv:2603.16666。
 
-建议分别放在两个 PDF 标签页中。Survey 使用 PDF 页码；Fast-WAM 也使用 PDF 页码，不按印刷页码寻找。
+建议分别放在三个 PDF 标签页中。以下标注均使用 PDF 页码，不按印页码寻找。
 
 ### 全场唯一主问题
 
@@ -419,9 +421,243 @@ Survey 将评价分为三个层面。
 
 ---
 
-# 第三部分：Fast-WAM
+# 第三部分：DreamZero
 
-## 9. Fast-WAM 的研究问题
+## 9. DreamZero 要解决什么？
+
+`[建议时长 2 分钟]` `[DreamZero｜PDF p.1–2｜Abstract 与 Introduction]` `[动作：先停在摘要，再看 p.2 Introduction]`
+
+DreamZero 的论文标题是 *World Action Models are Zero-shot Policies*。它不只是问“能不能联合生成视频和动作”，而是想验证：从大规模 video diffusion model 继承的时空与物理先验，能否让 robot policy 学会新环境和新动作。
+
+它面对三个工程与建模问题：
+
+1. Video-action alignment：future frames 与 motor commands 怎样在时间上对齐；
+2. Architecture：应该使用 bidirectional 还是 autoregressive WAM；
+3. Real-time control：14B video DiT 加多步 denoising 怎样达到闭环控制速度。
+
+`[主线]`
+
+DreamZero 的回答是：使用一个 autoregressive Joint Video-Action DiT，在同一个 flow-matching objective 中联合去噪 future-video latent 和 action，并用真实观测不断刷新 KV cache。
+
+---
+
+## 10. 概率分解：Video prediction 与 IDM 在一个模型里
+
+`[建议时长 2 分钟]` `[DreamZero｜PDF p.6｜Sec.3.1｜Eq. (1)]` `[动作：放大 p.6 最下方的 Eq. (1)]`
+
+给定历史视觉观测 (o_{0:l})、语言指令 (c) 和当前本体状态 (q_l)，DreamZero 联合预测 future observation 和 action：
+
+WAMDISPLAYMATH9TOKEN
+
+论文将它分解为：
+
+WAMDISPLAYMATH10TOKEN
+
+`[公式来源：DreamZero｜PDF p.6｜Eq. (1)]`
+
+右边第一项是 autoregressive video prediction；第二项是看到当前与未来视觉序列后恢复动作的 inverse dynamics model。
+
+但实现上它不是“两个模型串联”，而是一个 end-to-end joint model。Eq. (1) 说明概率语义，Figure 4 才说明计算图。
+
+`[提醒]`
+
+不要因为 Eq. (1) 有两项，就说 DreamZero 有两个串行模型。论文在 PDF p.7 明确强调使用 single model end-to-end joint prediction。
+
+---
+
+## 11. Figure 4：输入、输出与网络结构
+
+`[建议时长 4 分钟]` `[DreamZero｜PDF p.6–7｜Fig.4 与 Sec.3.1]` `[动作：放大 p.6 Figure 4，先讲左侧 Training，再讲右侧 Inference]`
+
+### 11.1 条件输入
+
+DreamZero 有三类条件：
+
+1. Visual context (o_{0:l})：历史与当前 RGB observation，经 video VAE 得到 latent；
+2. Language instruction (c)：经 text encoder 得到 language condition；
+3. Proprioceptive state (q_l)：经 state encoder 得到 state tokens。
+
+如果有多个 camera view，论文在进入 backbone 前把各视角拼成一帧，而不是为每个视角增加独立 branch。
+
+### 11.2 两种生成变量
+
+当前 chunk 同时包含：
+
+- noisy video latent (z^k_{t_k})；
+- noisy normalized action (a^k_{t_k})。
+
+它们被组合成联合状态：
+
+WAMDISPLAYMATH11TOKEN
+
+`[公式性质：对 DreamZero Eq. (3) 输入记号的讲稿拆解]`
+
+Video 和 action 从各自的 Gaussian noise 出发，经各自 encoder 变成 token，但进入同一个 joint autoregressive DiT (u_\theta)。
+
+### 11.3 输出
+
+DiT 预测联合 velocity：
+
+WAMDISPLAYMATH12TOKEN
+
+`[公式性质：根据 DreamZero Eq. (3) 与 Algorithm 2 拆出两个模态的 velocity]`
+
+最后使用分开的 decoder 得到 future frames 和 action chunk。所以 DreamZero 的 unified stream 指共享一个 DiT 主干和联合 velocity model，不是说 video/action 必须共用同一个 Gaussian tensor 或同一个 decoder。
+
+---
+
+## 12. Eq. (2)–(3)：Joint flow matching
+
+`[建议时长 4 分钟]` `[DreamZero｜PDF p.7–8｜Eq. (2)–(3)]` `[动作：放大 p.7 下半页公式]`
+
+对第 (k) 个 chunk，分别采样 video noise 和 action noise：
+
+WAMDISPLAYMATH13TOKEN
+
+干净目标分别是 (z^k_1) 和 (a^k_1)。DreamZero 的时间方向是 (t=0) 为噪声、(t=1) 为数据：
+
+WAMDISPLAYMATH14TOKEN
+
+`[公式来源：DreamZero｜PDF p.7｜Eq. (2)]`
+
+对应的 target joint velocity 是：
+
+WAMDISPLAYMATH15TOKEN
+
+训练目标为：
+
+WAMDISPLAYMATH16TOKEN
+
+`[公式来源：DreamZero｜PDF p.7–8｜Eq. (3)]`
+
+其中：
+
+- (\mathcal C_k=\{(z^j_1,a^j_1)\}_{j=1}^{k-1}) 是 teacher-forced clean history；
+- (c) 是 language condition；
+- (q_k) 是当前 proprioception；
+- (u_\theta) 同时预测 video velocity 和 action velocity。
+
+`[主线]`
+
+这就是所谓 single (u_\theta)：一个 joint velocity model 接收两种模态的联合状态。但 (z_0^k) 和 (a_0^k) 仍然是分别采样的 Gaussian noise，不能解释成两种模态融进同一个 Gaussian 空间。
+
+---
+
+## 13. Figure 14：Autoregressive chunk 与 attention mask
+
+`[建议时长 4 分钟]` `[DreamZero｜PDF p.21–22｜Fig.14 与 Algorithm 1–2]` `[动作：放大 p.21 Figure 14；先读纵轴 Query，再读横轴 Key/Value]`
+
+Figure 14 中有三类 token：
+
+- (C_i)：clean conditioning observation；
+- (Z_i)：需要去噪的 future-video latent；
+- (Y_i)：需要去噪的 action。
+
+训练时，当前 noisy chunk 可以读取之前 chunk 的 clean context。这是 trajectory-level teacher forcing：不是将模型自己上一步的错误预测继续喂回去。
+
+推理时的核心流程是：
+
+```text
+GT observation
+    ↓ VAE + DiT prefill
+clean visual KV cache
+    ↓
+jointly denoise [future video, action]
+    ↓
+execute action chunk asynchronously
+    ↓
+receive a new real observation
+    ↓
+replace predicted visual history with GT visual KV
+```
+
+Figure 14b 中，例如 (Y_3) 可以读取 (C_0,C_1,C_2)，因此 action prediction 使用过去的真实视觉历史。但当前 chunk 里仍然会联合生成 future video 与 action，这一点与 Fast-WAM 不同。
+
+论文的默认 chunk 设置是：
+
+- 每个 chunk (K=2) 个 latent frames；
+- 最多 (M=4) 个 chunks；
+- AgiBot：video 5 FPS，action 30 Hz，(H=48)；
+- DROID：video 5 FPS，action 15 Hz，(H=24)；
+- 两者每个 chunk 都覆盖 1.6 s；
+- 最长 visual context 为 8 latent frames，约对应 33 raw frames / 6.6 s。
+
+`[页面位置：DreamZero｜PDF p.21｜Fig.14 下方段落]`
+
+---
+
+## 14. DreamZero-Flash 与实时推理
+
+`[建议时长 3 分钟]` `[DreamZero｜PDF p.8–10｜Sec.3.2 与 Fig.5]` `[DreamZero｜PDF p.23–24｜Eq. (4)–(6)]` `[可略：系统优化可只讲一句]`
+
+原始 DreamZero 在训练中让 video 和 action 共享同一 timestep：
+
+WAMDISPLAYMATH17TOKEN
+
+`[公式来源：DreamZero｜PDF p.23｜Eq. (4)]`
+
+但单步或少步推理时，action 需要很快去噪到干净结果，video 却可能仍然很噪。DreamZero-Flash 于是把两种 timestep schedule 解耦：
+
+WAMDISPLAYMATH18TOKEN
+
+`[公式来源：DreamZero｜PDF p.24｜Eq. (5)]`
+
+论文使用 Beta(7,1)，使 (\mathbb E[t_k^{video}]=0.125)，也就是训练时经常让 action 在高噪声 video context 下学会快速恢复。
+
+实时化还包括：
+
+- CFG parallelism；
+- DiT velocity caching；
+- asynchronous inference / execution；
+- `torch.compile` + CUDA Graphs；
+- NVFP4/FP8 mixed quantization；
+- attention kernel 与 scheduler 优化；
+- action chunk 的 Savitzky-Golay smoothing。
+
+`[谨慎表述]`
+
+38× 是论文表 1 中各级优化累积后相对于其 baseline 的报告值，不是“DreamZero 架构天然快 38×”。
+
+---
+
+## 15. 实验设置：数据、backbone 和训练协议
+
+`[建议时长 3 分钟]` `[DreamZero｜PDF p.10–13｜Sec.4 与 Sec.4.1]` `[动作：p.10 看 Experimental Setup，p.11 看 Training，p.12–13 只快速展示]`
+
+### 15.1 Robot 与数据
+
+- AgiBot G1 mobile bimanual manipulator：约 500 小时 teleoperation data，22 个真实环境，7193 episodes；
+- Franka single arm：使用 DROID；
+- Cross-embodiment：还使用 YAM robot 和 human egocentric video；
+- 两种主要 robot embodiment 分别预训，不是一个统一 multi-embodiment checkpoint。
+
+### 15.2 Backbone 与优化
+
+- Backbone：Wan2.1-I2V-14B-480P；
+- AgiBot 和 DROID 都训练 100k steps；
+- Global batch size 128；
+- 更新所有 DiT blocks、state encoder、action encoder 和 action decoder；
+- 冻结 text encoder、image encoder 和 VAE；
+- 过滤 idle actions，默认使用 relative joint positions；
+- 论文报告 LoRA 效果较差，所以使用 full DiT update。
+
+### 15.3 Baselines 与可比性
+
+对比 GR00T N1.6 和 (\pi_{0.5})，同时比较 from-scratch 与 official pretrained initialization。论文让 baselines 使用与 DreamZero 相同的 robot data，并匹配 total batch size 与 gradient steps。
+
+`[结果可略]`
+
+结果现场只需要说：论文用 seen/unseen tasks、unseen environments 和 cross-embodiment transfer 支持“video-pretrained joint WAM 更能利用异质数据”这一主张，不必逐项读成功率。
+
+`[转场]`
+
+DreamZero 展示了一个强而完整的 Joint WAM：训练和推理都联合生成 future video 与 action。接下来 Fast-WAM 追问：如果保留这种 video co-training，但测试时不再生成 future video，会怎样？
+
+---
+
+# 第四部分：Fast-WAM
+
+## 16. Fast-WAM 的研究问题
 
 `[时间 28:00–31:00]` `[Fast-WAM｜PDF p.1｜Abstract 与 Introduction]` `[动作：从 Survey 切换到 Fast-WAM；停留在摘要]`
 
@@ -446,7 +682,7 @@ Fast-WAM 的核心贡献，就是把这两个因素拆开。
 
 ---
 
-## 10. 三种范式：Figure 1
+## 17. 三种范式：Figure 1
 
 `[时间 31:00–35:00]` `[Fast-WAM｜PDF p.2｜Fig.1]` `[动作：放大 Figure 1，从 A 到 C 逐个指]`
 
@@ -480,13 +716,13 @@ Fast-WAM 实际上提出了一个新的解释：
 
 ---
 
-## 11. 概率视角：Fast-WAM 去掉了什么？
+## 18. 概率视角：Fast-WAM 去掉了什么？
 
 `[时间 35:00–37:30]` `[Fast-WAM｜PDF p.3–4｜Sec.3.1]` `[动作：直接翻到 p.4，停留在 Eq.2–4]`
 
 典型 imagine-then-execute WAM 可以写成：
 
-WAMDISPLAYMATH9TOKEN
+WAMDISPLAYMATH19TOKEN
 
 `[公式来源：Fast-WAM｜PDF p.4｜Sec.3.1｜Eq. (2)]` 这里的积分表示对所有可能的未来视频计划进行边缘化；工程实现通常通过生成一个或若干 future samples 来近似。
 
@@ -494,31 +730,31 @@ WAMDISPLAYMATH9TOKEN
 
 Fast-WAM 改成：
 
-WAMDISPLAYMATH10TOKEN
+WAMDISPLAYMATH20TOKEN
 
 `[公式来源：Fast-WAM｜PDF p.4｜Sec.3.1｜Eq. (3)–(4)]` Eq. (3) 是 direct-policy interface：
 
-WAMDISPLAYMATH11TOKEN
+WAMDISPLAYMATH21TOKEN
 
 Eq. (4) 再明确它通过一次前向编码得到的 latent world representation 参数化：
 
-WAMDISPLAYMATH12TOKEN
+WAMDISPLAYMATH22TOKEN
 
-其中 WAMINLINEMATH22TOKEN 是当前 observation 经过 video backbone 得到的 latent world representation。
+其中 WAMINLINEMATH32TOKEN 是当前 observation 经过 video backbone 得到的 latent world representation。
 
-关键差异是：这个 WAMINLINEMATH23TOKEN 来自一次 current-context encoding，而不是通过多步采样或 denoising 得到的 future video。
+关键差异是：这个 WAMINLINEMATH33TOKEN 来自一次 current-context encoding，而不是通过多步采样或 denoising 得到的 future video。
 
 所以 Fast-WAM 不是把视频模型完全拿掉，而是把视频模型从“测试时未来生成器”变成“当前观测的 world-grounded feature extractor”。
 
 ---
 
-## 12. 输入与输出：先把张量和预测目标讲清楚
+## 19. 输入与输出：先把张量和预测目标讲清楚
 
 `[时间 37:30–41:00]` `[Fast-WAM｜PDF p.4–5｜Sec.3.1–3.2]` `[动作：先停在 p.4 的 Eq.3–4，再翻到 p.5 Fig.2a]`
 
 在进入网络结构之前，先明确 Fast-WAM 的输入、训练目标和推理输出。否则后面的 attention mask 很容易讲乱。
 
-### 12.1 条件输入
+### 19.1 条件输入
 
 模型接收：
 
@@ -526,18 +762,18 @@ WAMDISPLAYMATH12TOKEN
 2. Language instruction，例如图中的 “Fold the cloth”。语言由 Wan 内置的 T5 text encoder 编码。
 3. 可选 proprioception。公开实现允许把机器人本体状态编码后追加到 context tokens 中。
 
-当前 RGB observation 先经过预训练 video VAE，变成 clean visual latent。经过 Video DiT 的 patch embedding 后，形成当前帧 token 序列 WAMINLINEMATH24TOKEN。
+当前 RGB observation 先经过预训练 video VAE，变成 clean visual latent。经过 Video DiT 的 patch embedding 后，形成当前帧 token 序列 WAMINLINEMATH34TOKEN。
 
-### 12.2 训练时需要的监督
+### 19.2 训练时需要的监督
 
 训练样本还包含：
 
-- future video frames，经 VAE 编码成目标 latent WAMINLINEMATH25TOKEN；
-- action chunk WAMINLINEMATH26TOKEN。
+- future video frames，经 VAE 编码成目标 latent WAMINLINEMATH35TOKEN；
+- action chunk WAMINLINEMATH36TOKEN。
 
-论文设置 action horizon WAMINLINEMATH27TOKEN。视频在时间维度下采样 4 倍，每个 chunk 对应 9 个 video frames。这里的 future frames 是训练监督，不是 Fast-WAM 测试时的输入。
+论文设置 action horizon WAMINLINEMATH37TOKEN。视频在时间维度下采样 4 倍，每个 chunk 对应 9 个 video frames。这里的 future frames 是训练监督，不是 Fast-WAM 测试时的输入。
 
-### 12.3 加噪后的生成变量
+### 19.3 加噪后的生成变量
 
 训练时，future video latent 和 action chunk 分别与 Gaussian noise 插值：
 
@@ -546,13 +782,13 @@ WAMDISPLAYMATH12TOKEN
 
 两种变量各自拥有 timestep conditioning，但共享语言和当前观测条件。
 
-### 12.4 推理输出
+### 19.4 推理输出
 
 Fast-WAM 的部署接口输出一个连续 action chunk：
 
-WAMDISPLAYMATH13TOKEN
+WAMDISPLAYMATH23TOKEN
 
-`[公式性质：讲稿中的 I/O shape 概括，不是论文编号公式]` 论文在 PDF p.4 使用 WAMINLINEMATH28TOKEN 表示 action horizon；公开实现进一步验证随机 action latent 为 `[1, H, D_a]`，最终返回 `[H, D_a]`。
+`[公式性质：讲稿中的 I/O shape 概括，不是论文编号公式]` 论文在 PDF p.4 使用 WAMINLINEMATH38TOKEN 表示 action horizon；公开实现进一步验证随机 action latent 为 `[1, H, D_a]`，最终返回 `[H, D_a]`。
 
 公开实现的随机初值形状是 `[1, action_horizon, action_dim]`，经过 action flow-matching solver 多步更新后返回 `[action_horizon, action_dim]`。
 
@@ -572,13 +808,13 @@ Fast-WAM 推理时既不接收 future video，也不输出 future video。
 
 ---
 
-## 13. 架构与 attention mask：Figure 2
+## 20. 架构与 attention mask：Figure 2
 
 `[时间 41:00–47:30]` `[Fast-WAM｜PDF p.5｜Fig.2]` `[动作：先放大 Fig.2a，再放大 Fig.2b，最后看公式 5–9]`
 
 这是 Fast-WAM 最需要仔细讲的一页。
 
-### 13.1 模型组成
+### 20.1 模型组成
 
 Fast-WAM 使用 Wan2.2-5B 的 Video DiT、T5 text encoder 和 video VAE。在此基础上增加一个 1B Action DiT。论文把完整模型报告为 6B。
 
@@ -597,17 +833,17 @@ Fast-WAM 使用 Wan2.2-5B 的 Video DiT、T5 text encoder 和 video VAE。在此
 
 输入 token 分为三组：
 
-1. 当前第一帧的 clean latent tokens，记作 WAMINLINEMATH29TOKEN；
-2. 未来视频的 noisy latent tokens，记作 WAMINLINEMATH30TOKEN 到 WAMINLINEMATH31TOKEN；
-3. action tokens，记作 WAMINLINEMATH32TOKEN 到 WAMINLINEMATH33TOKEN。
+1. 当前第一帧的 clean latent tokens，记作 WAMINLINEMATH39TOKEN；
+2. 未来视频的 noisy latent tokens，记作 WAMINLINEMATH40TOKEN 到 WAMINLINEMATH41TOKEN；
+3. action tokens，记作 WAMINLINEMATH42TOKEN 到 WAMINLINEMATH43TOKEN。
 
 语言通过 cross-attention 提供给 video 和 action tokens。
 
-### 13.2 训练时的信息流
+### 20.2 训练时的信息流
 
 训练时，future-video tokens 在 video branch 内部完成 video flow matching；action tokens 在 action branch 内部完成 action flow matching。
 
-两者共享当前帧 WAMINLINEMATH34TOKEN 作为视觉条件，但 Base Fast-WAM 有意禁止 action tokens 读取 future-video tokens。这样做是为了防止 future information 泄漏到 action branch，并确保后续可以在不生成 future video 的情况下单独运行 action branch。
+两者共享当前帧 WAMINLINEMATH44TOKEN 作为视觉条件，但 Base Fast-WAM 有意禁止 action tokens 读取 future-video tokens。这样做是为了防止 future information 泄漏到 action branch，并确保后续可以在不生成 future video 的情况下单独运行 action branch。
 
 从 query-to-key 的方向来看，Base Fast-WAM 训练 mask 的核心关系可以概括为：
 
@@ -621,13 +857,13 @@ Fast-WAM 使用 Wan2.2-5B 的 Video DiT、T5 text encoder 和 video VAE。在此
 
 总损失是：
 
-WAMDISPLAYMATH14TOKEN
+WAMDISPLAYMATH24TOKEN
 
 `[公式来源：Fast-WAM｜PDF p.5｜Sec.3.2｜Eq. (9)]` 这里先给出总结构，完整的 Eq. (5)–(9) 会在下一节逐项展开。
 
 因此，video prediction 仍然通过联合训练塑造 video backbone，只是 future-video output 不成为 Fast-WAM 测试时的显式条件。
 
-### 13.3 推理时的信息流
+### 20.3 推理时的信息流
 
 推理时，future-video tokens 完全不创建。模型只保留当前 observation 的 latent tokens 和需要 denoise 的 action tokens。
 
@@ -657,65 +893,65 @@ action chunk
 
 ---
 
-## 14. Flow matching 公式：Eq. (5)–(9)
+## 21. Flow matching 公式：Eq. (5)–(9)
 
 `[时间 47:30–51:30]` `[Fast-WAM｜PDF p.5｜页面下半部 Eq.5–9]` `[动作：放大公式区域；按 5→6→7/8→9 的顺序]`
 
 Fast-WAM 对 video latent 和 action 使用相同形式的 flow matching。
 
-给定一个干净目标 WAMINLINEMATH35TOKEN，它可以是 action chunk WAMINLINEMATH36TOKEN，也可以是 future-video latent WAMINLINEMATH37TOKEN。首先采样：
+给定一个干净目标 WAMINLINEMATH45TOKEN，它可以是 action chunk WAMINLINEMATH46TOKEN，也可以是 future-video latent WAMINLINEMATH47TOKEN。首先采样：
 
-WAMDISPLAYMATH15TOKEN
+WAMDISPLAYMATH25TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (5) 前的文字定义]` 这是论文对通用目标变量 WAMINLINEMATH38TOKEN 的噪声与时间采样说明，不是单独编号公式。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (5) 前的文字定义]` 这是论文对通用目标变量 WAMINLINEMATH48TOKEN 的噪声与时间采样说明，不是单独编号公式。
 
 然后构造线性插值：
 
-WAMDISPLAYMATH16TOKEN
+WAMDISPLAYMATH26TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (5)]` WAMINLINEMATH39TOKEN 可以分别取 action chunk 或 future-video latent。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (5)]` WAMINLINEMATH49TOKEN 可以分别取 action chunk 或 future-video latent。
 
-按照这篇论文的时间方向，WAMINLINEMATH40TOKEN 对应数据，WAMINLINEMATH41TOKEN 对应噪声。沿这条直线路径，目标 velocity 是：
+按照这篇论文的时间方向，WAMINLINEMATH50TOKEN 对应数据，WAMINLINEMATH51TOKEN 对应噪声。沿这条直线路径，目标 velocity 是：
 
-WAMDISPLAYMATH17TOKEN
+WAMDISPLAYMATH27TOKEN
 
-`[公式性质：由 Eq. (5) 直接求导得到的讲稿推导，论文未单独编号]` 用它解释为什么 Eq. (6) 的 target velocity 是 WAMINLINEMATH42TOKEN。
+`[公式性质：由 Eq. (5) 直接求导得到的讲稿推导，论文未单独编号]` 用它解释为什么 Eq. (6) 的 target velocity 是 WAMINLINEMATH52TOKEN。
 
 网络学习预测这个速度场：
 
-WAMDISPLAYMATH18TOKEN
+WAMDISPLAYMATH28TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (6)]` 网络在 observation WAMINLINEMATH43TOKEN 和 language WAMINLINEMATH44TOKEN 条件下预测插值路径的 velocity field。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (6)]` 网络在 observation WAMINLINEMATH53TOKEN 和 language WAMINLINEMATH54TOKEN 条件下预测插值路径的 velocity field。
 
 对 action：
 
-WAMDISPLAYMATH19TOKEN
+WAMDISPLAYMATH29TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (7)]` 将通用变量 WAMINLINEMATH45TOKEN 实例化为 action chunk。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (7)]` 将通用变量 WAMINLINEMATH55TOKEN 实例化为 action chunk。
 
 对 future video latent：
 
-WAMDISPLAYMATH20TOKEN
+WAMDISPLAYMATH30TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (8)]` 将通用变量 WAMINLINEMATH46TOKEN 实例化为 VAE 编码后的 future-video latent。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (8)]` 将通用变量 WAMINLINEMATH56TOKEN 实例化为 VAE 编码后的 future-video latent。
 
 最终联合目标是：
 
-WAMDISPLAYMATH21TOKEN
+WAMDISPLAYMATH31TOKEN
 
-`[公式来源：Fast-WAM｜PDF p.5｜Eq. (9)]` WAMINLINEMATH47TOKEN 控制 world-modeling supervision 相对 action objective 的权重。
+`[公式来源：Fast-WAM｜PDF p.5｜Eq. (9)]` WAMINLINEMATH57TOKEN 控制 world-modeling supervision 相对 action objective 的权重。
 
 `[主线]`
 
-Eq. (9) 就是 Fast-WAM 保留 “world” 的地方。即使推理时没有 future-video output，WAMINLINEMATH48TOKEN 仍然在训练中约束 Video DiT 学习时空变化和交互结构。
+Eq. (9) 就是 Fast-WAM 保留 “world” 的地方。即使推理时没有 future-video output，WAMINLINEMATH58TOKEN 仍然在训练中约束 Video DiT 学习时空变化和交互结构。
 
 `[谨慎表述]`
 
-论文正文写成一般的权重 WAMINLINEMATH49TOKEN。公开基础配置显式设置 `lambda_action: 1.0`，没有覆盖 `lambda_video`；运行时对未配置的 `lambda_video` 使用默认值 1.0。因此当前公开基础配置实际采用等权的 video/action loss。报告论文时仍建议先讲 Eq. (9) 的一般形式，再补充“公开配置中两项权重均为 1.0”。
+论文正文写成一般的权重 WAMINLINEMATH59TOKEN。公开基础配置显式设置 `lambda_action: 1.0`，没有覆盖 `lambda_video`；运行时对未配置的 `lambda_video` 使用默认值 1.0。因此当前公开基础配置实际采用等权的 video/action loss。报告论文时仍建议先讲 Eq. (9) 的一般形式，再补充“公开配置中两项权重均为 1.0”。
 
 ---
 
-## 15. Controlled variants：实验到底在控制什么？
+## 22. Controlled variants：实验到底在控制什么？
 
 `[时间 51:30–54:00]` `[Fast-WAM｜PDF p.6｜Sec.3.3]` `[动作：停留在页面上半部分四个 variant 的描述]`
 
@@ -748,11 +984,11 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-## 16. 实验设置：重点讲可比性，不讲排行榜
+## 23. 实验设置：重点讲可比性，不讲排行榜
 
 `[时间 54:00–57:00]` `[Fast-WAM｜PDF p.6–7｜Sec.4.1–4.2]` `[动作：p.6 下半页逐段讲设置；p.7 只看 Figure 3 任务示意]`
 
-### 16.1 模型与推理设置
+### 23.1 模型与推理设置
 
 - Backbone：预训练 Wan2.2-5B，包括 Video DiT、text encoder 和 video VAE；
 - Action expert：hidden dimension 1024，论文报告约 1B 参数；
@@ -762,21 +998,21 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 - 多相机输入：在送入 VAE 前拼接成一张图像；
 - Video 与 action 都使用 flow matching；
 - 推理：10 个 denoising steps，CFG scale 1.0；
-- 优化器：AdamW，learning rate WAMINLINEMATH50TOKEN，weight decay 0.01，cosine annealing；
+- 优化器：AdamW，learning rate WAMINLINEMATH60TOKEN，weight decay 0.01，cosine annealing；
 - mixed precision，gradient clipping 1.0。
 
 `[提醒]`
 
 公开 `infer_action()` 的函数默认值是 20 steps，但论文实验设置明确写 10 steps。报告论文时应以论文 Sec.4.1 的 10 steps 为准；部署调用可以通过参数覆盖默认值。
 
-### 16.2 LIBERO
+### 23.2 LIBERO
 
 - 四个 suite：Spatial、Object、Goal、Long；
 - 每个 suite 10 个任务，每个任务 500 demonstrations；
 - 训练 20k steps；
 - 总计在 40 个任务上评测 2000 trials，并使用不同 random seeds。
 
-### 16.3 RoboTwin 2.0
+### 23.3 RoboTwin 2.0
 
 - 50 多个双臂操作任务；
 - clean scenes：2500 demonstrations；
@@ -784,7 +1020,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 - 训练 30k steps；
 - clean 与 randomized setting 下，每个任务各评测 100 trials。
 
-### 16.4 Real-world towel folding
+### 23.4 Real-world towel folding
 
 - 平台：Galaxea R1 Lite；
 - 数据：60 小时 teleoperated demonstrations；
@@ -797,7 +1033,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-## 17. 结果只保留一句话
+## 24. 结果只保留一句话
 
 `[时间 57:00–58:00]` `[Fast-WAM｜PDF p.7–9｜Table 1、Table 2、Fig.4]` `[动作：连续快速翻过三页，不逐项读数]` `[可略]`
 
@@ -807,15 +1043,15 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-# 第四部分：总结与讨论
+# 第五部分：总结与讨论
 
-## 18. 三条 takeaway
+## 25. 三条 takeaway
 
 `[时间 58:00–60:00]` `[Fast-WAM｜PDF p.9｜Conclusion]` `[动作：停留在 Conclusion，不再翻页]`
 
 今天可以总结为三点。
 
-第一，**WAM 的定义核心不是视频生成，而是预测性的世界信息与动作生成之间的耦合。**
+第一，**WAM 的定义核心不是视频生成，而是预测性的世界信息与动作生成之间的耦合。DreamZero 用一个 joint autoregressive DiT 给出了完整实例。**
 
 第二，**WAM 有两个容易被混在一起的能力：训练时通过未来预测学习 world representation，以及测试时显式生成未来。**
 
@@ -827,7 +1063,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-## 19. 讨论问题
+## 26. 讨论问题
 
 `[时间 60:00+]` `[讨论]`
 
@@ -835,7 +1071,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 支持“算”的观点：它训练时联合学习 world dynamics 和 action，video objective 明显影响 action performance。
 
-支持“不完全算”的观点：它推理时没有显式 future prediction，接口形式已经回到 WAMINLINEMATH51TOKEN，更像 world-model-pretrained policy。
+支持“不完全算”的观点：它推理时没有显式 future prediction，接口形式已经回到 WAMINLINEMATH61TOKEN，更像 world-model-pretrained policy。
 
 ### 问题二：future state 为什么一定要是 RGB video？
 
@@ -857,21 +1093,22 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-# 20. 时间不足时的 40 分钟压缩方案
+# 27. 时间不足时的 40 分钟压缩方案
 
 如果现场前面被打断，可按下面方式压缩：
 
 1. Survey p.2 时间线压缩到 1 分钟。
 2. Survey p.6 的概念辨析跳过。
 3. Survey p.12 World Model for VLA 不讲。
-4. Cascaded WAM 和 Joint WAM 各压缩到 3 分钟。
+4. Cascaded WAM 和 Joint WAM taxonomy 各压缩到 1 分钟。
 5. Survey evaluation 只保留一句：“不能只看视频质量或 task success。”
-6. Fast-WAM p.4–6 的公式、Figure 2、controlled variants 必须保留；结果可全部压缩成一句。
-7. 讨论只保留“Fast-WAM 是否仍然是 WAM”一个问题。
+6. DreamZero 必须保留 p.6 Figure 4 / Eq. (1)、p.7–8 Eq. (2)–(3) 和 p.21 Figure 14；实时优化与结果只讲一句。
+7. Fast-WAM p.4–6 的公式、Figure 2、controlled variants 必须保留；结果可全部压缩成一句。
+8. 讨论只保留“Fast-WAM 是否仍然是 WAM”一个问题。
 
 ---
 
-# 21. 快速翻页索引
+# 28. 快速翻页索引
 
 ## Survey
 
@@ -883,6 +1120,17 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 - PDF p.21：Figure 6，Diffusion-based Joint WAM taxonomy
 - PDF p.34–36：Evaluation 与 Table 8
 - PDF p.42–44：Open challenges
+
+## DreamZero
+
+- PDF p.1–2：摘要、研究问题与主要结论
+- PDF p.6：Figure 4，I/O 与 joint autoregressive DiT；Eq. (1)
+- PDF p.7–8：Eq. (2)–(3)，joint flow matching；推理逻辑
+- PDF p.8–10：实时推理与 DreamZero-Flash
+- PDF p.10–13：实验设置、数据与训练协议
+- PDF p.21：Figure 14，training/inference attention mask 与 chunk 设置
+- PDF p.22：Algorithm 1–2，训练和闭环推理伪代码
+- PDF p.23–24：DreamZero-Flash Eq. (4)–(6)
 
 ## Fast-WAM
 
@@ -897,7 +1145,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
 
 ---
 
-# 22. 最容易讲错的五句话
+# 29. 最容易讲错的五句话
 
 1. 不要说：“VLA 完全没有 world knowledge。”  
    改为：“标准 VLA objective 不显式要求预测未来状态。”
@@ -915,7 +1163,7 @@ Future video 和 action 在推理时联合 denoise，代表 joint-generation WAM
    改为：“在本文的任务和对照范围内，video co-training 的贡献大于显式 test-time future generation。”
 </script>
 <script>
-const labels=['首页','从 VLA 到 WAM','定义与 Taxonomy','Fast-WAM','总结与讨论','附录'];
+const labels=['首页','从 VLA 到 WAM','定义与 Taxonomy','DreamZero','Fast-WAM','总结与讨论'];
 function decorate(root){
   root.querySelectorAll('p').forEach(p=>{
     const t=p.textContent.trim();
@@ -937,7 +1185,7 @@ function setTab(i){document.querySelectorAll('.panel').forEach((p,j)=>p.classLis
 window.addEventListener('load',async()=>{
   const src=document.getElementById('md-source').textContent;
   marked.setOptions({gfm:true,breaks:false});
-  let rendered=marked.parse(src);const mathItems=["<div class=\"math-display\">\\[\np(a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{VLA}}\n=\\mathbb E_{(o,l,a)\\sim\\mathcal D}\n\\left[-\\log p(a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{VLA}}\n=\\mathbb E_{(o,l,a)\\sim\\mathcal D}\n\\left[-\\log p(a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o'\\mid o,a).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{WM}}\n=\\mathbb E_{(o,a,o')\\sim\\mathcal D}\n\\left[-\\log p(o'\\mid o,a)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o',a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{WAM}}\n=\\mathbb E_{(o,l,o',a)\\sim\\mathcal D}\n\\left[-\\log p(o',a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o',a\\mid o,l)\n=p(a\\mid o',o,l)\\,p(o'\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\np(a_{1:H}\\mid o,l)\n=\\int p(v_{1:T}\\mid o,l)\\,\np(a_{1:H}\\mid o,l,v_{1:T})\\,dv_{1:T}.\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l)\n=p_\\theta(a_{1:H}\\mid z(o,l)),\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l),\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l)\n=p_\\theta(a_{1:H}\\mid z(o,l)).\n\\]</div>","<div class=\"math-display\">\\[\n\\hat a_{1:H}\\in\\mathbb{R}^{H\\times D_a}.\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal{L}=\\mathcal{L}_{act}+\\lambda\\mathcal{L}_{vid}.\n\\]</div>","<div class=\"math-display\">\\[\n\\epsilon\\sim\\mathcal N(0,I),\\qquad t\\in(0,1).\n\\]</div>","<div class=\"math-display\">\\[\ny_t=(1-t)y+t\\epsilon. \\tag{5}\n\\]</div>","<div class=\"math-display\">\\[\n\\frac{d y_t}{dt}=\\epsilon-y.\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{FM}(y)=\n\\mathbb E_{y,\\epsilon,t}\n\\left[\n\\left\\|f_\\theta(y_t,t,o,l)-(\\epsilon-y)\\right\\|_2^2\n\\right]. \\tag{6}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{act}=\\mathcal L_{FM}(a_{1:H}). \\tag{7}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{vid}=\\mathcal L_{FM}(z_{1:T}). \\tag{8}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L=\\mathcal L_{act}+\\lambda\\mathcal L_{vid}. \\tag{9}\n\\]</div>","<span class=\"math-inline\">\\(z(o,l)\\)</span>","<span class=\"math-inline\">\\(z\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(z_{1:T}\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(H=32\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(f_1\\)</span>","<span class=\"math-inline\">\\(f_h\\)</span>","<span class=\"math-inline\">\\(a_1\\)</span>","<span class=\"math-inline\">\\(a_h\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(z_{1:T}\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(t=0\\)</span>","<span class=\"math-inline\">\\(t=1\\)</span>","<span class=\"math-inline\">\\(\\epsilon-y\\)</span>","<span class=\"math-inline\">\\(o\\)</span>","<span class=\"math-inline\">\\(l\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(\\lambda\\)</span>","<span class=\"math-inline\">\\(\\mathcal L_{vid}\\)</span>","<span class=\"math-inline\">\\(\\lambda\\)</span>","<span class=\"math-inline\">\\(10^{-4}\\)</span>","<span class=\"math-inline\">\\(p(a\\mid o,l)\\)</span>"];
+  let rendered=marked.parse(src);const mathItems=["<div class=\"math-display\">\\[\np(a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{VLA}}\n=\\mathbb E_{(o,l,a)\\sim\\mathcal D}\n\\left[-\\log p(a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{VLA}}\n=\\mathbb E_{(o,l,a)\\sim\\mathcal D}\n\\left[-\\log p(a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o'\\mid o,a).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{WM}}\n=\\mathbb E_{(o,a,o')\\sim\\mathcal D}\n\\left[-\\log p(o'\\mid o,a)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o',a\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{\\mathrm{WAM}}\n=\\mathbb E_{(o,l,o',a)\\sim\\mathcal D}\n\\left[-\\log p(o',a\\mid o,l)\\right].\n\\]</div>","<div class=\"math-display\">\\[\np(o',a\\mid o,l)\n=p(a\\mid o',o,l)\\,p(o'\\mid o,l).\n\\]</div>","<div class=\"math-display\">\\[\n\\pi_\\theta(o_{l:l+H},a_{l:l+H}\\mid o_{0:l},c,q_l).\n\\]</div>","<div class=\"math-display\">\\[\n\\pi_\\theta(o_{l:l+H},a_{l:l+H}\\mid o_{0:l},c,q_l)\n=\n\\pi_\\theta(o_{l:l+H}\\mid o_{0:l},c,q_l)\n\\,\n\\pi_\\theta(a_{l:l+H}\\mid o_{0:l+H},q_l).\n\\tag{1}\n\\]</div>","<div class=\"math-display\">\\[\nx^k_{t_k}=[z^k_{t_k},a^k_{t_k}].\n\\]</div>","<div class=\"math-display\">\\[\nu_\\theta(x^k_{t_k};\\mathcal C_k,c,q_k,t_k)\n=\n[\\hat v^k_{vid},\\hat v^k_{act}].\n\\]</div>","<div class=\"math-display\">\\[\nz^k_0\\sim\\mathcal N(0,I),\n\\qquad\na^k_0\\sim\\mathcal N(0,I).\n\\]</div>","<div class=\"math-display\">\\[\nz^k_{t_k}=t_kz^k_1+(1-t_k)z^k_0,\n\\qquad\na^k_{t_k}=t_ka^k_1+(1-t_k)a^k_0.\n\\tag{2}\n\\]</div>","<div class=\"math-display\">\\[\nv^k=[z^k_1,a^k_1]-[z^k_0,a^k_0].\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L(\\theta)\n=\n\\mathbb E_{z,a,\\{t_k\\}_{k=1}^{K}}\n\\left[\n\\frac{1}{K}\\sum_{k=1}^{K}\nw(t_k)\n\\left\\|\nu_\\theta([z^k_{t_k},a^k_{t_k}];\\mathcal C_k,c,q_k,t_k)-v^k\n\\right\\|_2^2\n\\right].\n\\tag{3}\n\\]</div>","<div class=\"math-display\">\\[\nt_k^{video}=t_k^{action}=t_k,\n\\qquad t_k\\sim\\mathcal U(0,1).\n\\tag{4}\n\\]</div>","<div class=\"math-display\">\\[\nt_k^{video}=1-\\eta,\n\\quad \\eta\\sim\\operatorname{Beta}(\\alpha,\\beta),\n\\qquad\nt_k^{action}\\sim\\mathcal U(0,1),\n\\quad \\alpha>\\beta.\n\\tag{5}\n\\]</div>","<div class=\"math-display\">\\[\np(a_{1:H}\\mid o,l)\n=\\int p(v_{1:T}\\mid o,l)\\,\np(a_{1:H}\\mid o,l,v_{1:T})\\,dv_{1:T}.\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l)\n=p_\\theta(a_{1:H}\\mid z(o,l)),\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l),\n\\]</div>","<div class=\"math-display\">\\[\np_\\theta(a_{1:H}\\mid o,l)\n=p_\\theta(a_{1:H}\\mid z(o,l)).\n\\]</div>","<div class=\"math-display\">\\[\n\\hat a_{1:H}\\in\\mathbb{R}^{H\\times D_a}.\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal{L}=\\mathcal{L}_{act}+\\lambda\\mathcal{L}_{vid}.\n\\]</div>","<div class=\"math-display\">\\[\n\\epsilon\\sim\\mathcal N(0,I),\\qquad t\\in(0,1).\n\\]</div>","<div class=\"math-display\">\\[\ny_t=(1-t)y+t\\epsilon. \\tag{5}\n\\]</div>","<div class=\"math-display\">\\[\n\\frac{d y_t}{dt}=\\epsilon-y.\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{FM}(y)=\n\\mathbb E_{y,\\epsilon,t}\n\\left[\n\\left\\|f_\\theta(y_t,t,o,l)-(\\epsilon-y)\\right\\|_2^2\n\\right]. \\tag{6}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{act}=\\mathcal L_{FM}(a_{1:H}). \\tag{7}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L_{vid}=\\mathcal L_{FM}(z_{1:T}). \\tag{8}\n\\]</div>","<div class=\"math-display\">\\[\n\\mathcal L=\\mathcal L_{act}+\\lambda\\mathcal L_{vid}. \\tag{9}\n\\]</div>","<span class=\"math-inline\">\\(z(o,l)\\)</span>","<span class=\"math-inline\">\\(z\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(z_{1:T}\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(H=32\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(f_1\\)</span>","<span class=\"math-inline\">\\(f_h\\)</span>","<span class=\"math-inline\">\\(a_1\\)</span>","<span class=\"math-inline\">\\(a_h\\)</span>","<span class=\"math-inline\">\\(f_0\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(a_{1:H}\\)</span>","<span class=\"math-inline\">\\(z_{1:T}\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(t=0\\)</span>","<span class=\"math-inline\">\\(t=1\\)</span>","<span class=\"math-inline\">\\(\\epsilon-y\\)</span>","<span class=\"math-inline\">\\(o\\)</span>","<span class=\"math-inline\">\\(l\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(y\\)</span>","<span class=\"math-inline\">\\(\\lambda\\)</span>","<span class=\"math-inline\">\\(\\mathcal L_{vid}\\)</span>","<span class=\"math-inline\">\\(\\lambda\\)</span>","<span class=\"math-inline\">\\(10^{-4}\\)</span>","<span class=\"math-inline\">\\(p(a\\mid o,l)\\)</span>"];
   mathItems.forEach((html,i)=>{rendered=rendered.replace('WAMDISPLAYMATH'+i+'TOKEN',html).replace('WAMINLINEMATH'+i+'TOKEN',html)});
   const temp=document.createElement('div');temp.innerHTML=rendered;
   const reader=document.getElementById('reader');reader.innerHTML='';const tabs=document.getElementById('tabs');
