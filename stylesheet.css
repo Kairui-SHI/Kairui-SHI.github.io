@@ -58,33 +58,6 @@ a:hover {
   text-decoration: none;
 }
 
-.featured-link {
-  margin: 18px 0 0;
-  text-align: center;
-}
-
-.blog-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  border: 1px solid var(--link);
-  border-radius: 999px;
-  background: var(--link);
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease;
-}
-
-.blog-button:focus,
-.blog-button:hover {
-  background: var(--link-hover);
-  color: #ffffff;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
 body,
 td,
 th,
@@ -187,9 +160,9 @@ code {
 }
 
 /* Dark mode toggle button */
-#theme-toggle {
+#theme-toggle,
+#blog-toggle {
   position: fixed;
-  top: 18px;
   right: 20px;
   width: 36px;
   height: 36px;
@@ -207,7 +180,17 @@ code {
   line-height: 1;
 }
 
-#theme-toggle:hover {
+#theme-toggle {
+  top: 18px;
+}
+
+#blog-toggle {
+  top: 62px;
+}
+
+#theme-toggle:hover,
+#blog-toggle:hover {
   transform: scale(1.08);
   border-color: var(--muted);
+  color: var(--toggle-color);
 }
