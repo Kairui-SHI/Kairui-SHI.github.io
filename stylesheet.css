@@ -161,7 +161,6 @@ code {
 
 /* Dark mode toggle button */
 #theme-toggle,
-#blog-toggle,
 #spatial-toggle {
   position: fixed;
   right: 20px;
@@ -185,18 +184,33 @@ code {
   top: 18px;
 }
 
-#blog-toggle {
+/* pill with a label, so the 3D version is discoverable */
+#spatial-toggle {
   top: 62px;
+  width: auto;
+  gap: 8px;
+  padding: 0 14px 0 11px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-#spatial-toggle {
-  top: 106px;
+#spatial-toggle span {
+  font-size: 13px;
+  line-height: 1;
+}
+
+#theme-toggle:hover {
+  transform: scale(1.08);
+}
+
+#spatial-toggle:hover {
+  transform: translateY(-1px);
 }
 
 #theme-toggle:hover,
-#blog-toggle:hover,
 #spatial-toggle:hover {
-  transform: scale(1.08);
   border-color: var(--muted);
   color: var(--toggle-color);
 }
