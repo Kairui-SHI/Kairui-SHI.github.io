@@ -161,7 +161,8 @@ code {
 
 /* Dark mode toggle button */
 #theme-toggle,
-#blog-toggle {
+#blog-toggle,
+#spatial-toggle {
   position: fixed;
   right: 20px;
   width: 36px;
@@ -188,8 +189,13 @@ code {
   top: 62px;
 }
 
+#spatial-toggle {
+  top: 106px;
+}
+
 #theme-toggle:hover,
-#blog-toggle:hover {
+#blog-toggle:hover,
+#spatial-toggle:hover {
   transform: scale(1.08);
   border-color: var(--muted);
   color: var(--toggle-color);

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Kairui Shi</title>
+    <meta name="author" content="Kairui Shi">
+    <meta name="description" content="Kairui Shi — CSE PhD student at the University at Buffalo working on computer vision, 3D reconstruction and robotics.">
+    <link rel="icon" type="image/png" href="../images/love.jpg">
+    <script>
+      (function() {
+        var root = document.documentElement;
+        root.classList.remove('no-js');
+        root.classList.add('js');
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (e) {}
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.setAttribute('data-theme', saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light');
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="css/site.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <div id="loader" aria-hidden="true">
+      <p>Kairui Shi</p>
+      <div class="bar"><span id="loader-fill"></span></div>
+    </div>
+
+    <header class="brand">
+      <h1>Kairui Shi</h1>
+      <p>CSE PhD Student · University at Buffalo</p>
+    </header>
+
+    <div class="actions">
+      <a class="icon-btn" href="../" aria-label="Back to the classic homepage" title="Classic homepage">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+      </a>
+      <a class="icon-btn" href="../talks/wam-fastwam/" aria-label="Open learning blog" title="Learning Blog">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between day and night" title="Day / Night">
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+
+    <nav class="dock" aria-label="Objects on the desk">
+      <button type="button" data-key="about"><span>01</span>About</button>
+      <button type="button" data-key="research"><span>02</span>Research</button>
+      <button type="button" data-key="tools"><span>03</span>Tools</button>
+      <button type="button" data-key="beyond"><span>04</span>Beyond</button>
+    </nav>
+
+    <p class="hint" id="hint">Drag to look around · Click anything on the desk</p>
+
+    <div id="tags">
+      <button type="button" class="tag" data-key="about" tabindex="-1">About</button>
+      <button type="button" class="tag" data-key="research" tabindex="-1">Research</button>
+      <button type="button" class="tag" data-key="tools" tabindex="-1">Tools</button>
+      <button type="button" class="tag" data-key="beyond" tabindex="-1">Beyond</button>
+    </div>
+
+    <div id="panels">
+      <article class="panel" data-key="about" aria-labelledby="h-about">
+        <button class="close" type="button" aria-label="Back to the desk">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+        <p class="kicker">01 · About</p>
+        <div class="who">
+          <img src="../images/Kairui%20Shi.jpg" alt="Portrait of Kairui Shi" width="88" height="88">
+          <h2 id="h-about">Kairui Shi</h2>
+        </div>
+        <p>I'm a first-year CSE PhD student at the State University of New York at Buffalo, advised by <a href="https://cse.buffalo.edu/~jsyuan/">Prof. Junsong Yuan</a>. Interested in computer vision, machine learning and robotics.</p>
+        <p>Before that, I got my B.S. degree from Wuhan University in 2025, majoring in Photogrammetry and Remote Sensing. And I was a visiting student at <a href="https://ai4ce.github.io/">AI4CE Lab@NYU</a> led by <a href="https://engineering.nyu.edu/faculty/chen-feng">Prof. Chen Feng</a>.</p>
+        <p>At Wuhan University I was fortunate enough to work with <a href="https://skyearth.org/zhangyj/">Prof. Yongjun Zhang</a> at his <a href="https://skyearth.org/">Skyearth Lab</a>. And I was also lucky enough to work with <a href="https://zhenzhong-chen.github.io/">Prof. Zhenzhong Chen</a> and <a href="https://sunwj.github.io/">ARF Wanjie Sun</a> at <a href="http://iip.whu.edu.cn/">Institute of Intelligence and Perception</a>.</p>
+        <p>Feel free to <a href="mailto:kairuishi.engineering@gmail.com">contact me</a>.</p>
+        <p class="links">
+          <a href="mailto:ks8018@nyu.edu">Email</a>
+          <a href="../data/Kairui-Resume.pdf">CV</a>
+          <a href="https://github.com/Kairui-SHI">GitHub</a>
+          <a href="https://www.linkedin.com/in/kairui-shi-5342a52ab/">LinkedIn</a>
+        </p>
+      </article>
+
+      <article class="panel" data-key="research" aria-labelledby="h-research">
+        <button class="close" type="button" aria-label="Back to the desk">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+        <p class="kicker">02 · Research</p>
+        <h2 id="h-research">Are we able to create an immersive and interactive virtual world?</h2>
+        <p>At the broadest level, my research interests lie in the intersection of <b>computer vision</b>, <b>photogrammetry</b> and <b>machine learning</b>.</p>
+        <p>Specifically, I'm interested in <b>3D reconstruction</b> and <b>SLAM</b>, focusing on high-precision mapping, reconstruction, and restoration of objects, streets, and cities, while also perceiving embedded information to enable interaction.</p>
+        <p>With the advancement of neural networks, hardware performance, and robotics, the speed and accuracy of reconstruction will continue to improve. Its impact will inevitably extend to multiple domains, such as medicine, anthropology, and the gaming industry.</p>
+        <div class="paper">
+          <p class="venue">ICRA 2025</p>
+          <h3><a href="https://ai4ce.github.io/FusionSense/">FusionSense: Bridging Common Sense, Vision, and Touch for Robust Sparse-View Reconstruction</a></h3>
+          <p class="authors">
+            <a href="https://irvingf7.github.io/">Irving Fang*</a>, <strong>Kairui Shi*</strong>, <a href="https://www.linkedin.com/in/kim-he-064a36258/">Xujin He*</a>, Siqi Tan, Yifan Wang, <a href="https://www.linkedin.com/in/hanwen-zhao-2523a4104/">Hanwen Zhao</a>, <a href="https://joehjhuang.github.io">Hung-Jui Huang</a>, <a href="https://scholar.google.com/citations?user=SNqm6doAAAAJ&hl=en">Wenzhen Yuan</a>, <a href="https://scholar.google.com/citations?user=YeG8ZM0AAAAJ">Chen Feng</a>, <a href="https://jingz6676.github.io">Jing Zhang</a> <span class="muted">(* equal contribution)</span>
+          </p>
+          <p>Reconstruct visually and geometrically accurate scene and object from sparse-view RGB-D images, enhanced with tactile sensing.</p>
+          <p class="links">
+            <a href="https://ai4ce.github.io/FusionSense/">Project page</a>
+            <a href="https://arxiv.org/pdf/2410.08282">arXiv</a>
+            <a href="https://github.com/ai4ce/FusionSense">Code</a>
+          </p>
+        </div>
+      </article>
+
+      <article class="panel" data-key="tools" aria-labelledby="h-tools">
+        <button class="close" type="button" aria-label="Back to the desk">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+        <p class="kicker">03 · Tools &amp; Notes</p>
+        <h2 id="h-tools">MANO Hand Online Viewer</h2>
+        <p>A browser-based interactive viewer for the <a href="https://mano.is.tue.mpg.de">MANO</a> hand model. Load your own <code>MANO_RIGHT.pkl</code> locally — no upload, no server, model stays on your machine. Adjust pose and shape parameters in real time.</p>
+        <p class="links">
+          <a href="https://kairui-shi.github.io/MANO-HAND-ONLINE/">Live demo</a>
+          <a href="https://github.com/Kairui-SHI/MANO-HAND-ONLINE">Code</a>
+        </p>
+        <h3>Learning blog</h3>
+        <p>Talk notes on WAM and Fast-WAM, with a detailed chapter on DreamZero.</p>
+        <p class="links">
+          <a href="../talks/wam-fastwam/">Read the notes</a>
+        </p>
+      </article>
+
+      <article class="panel" data-key="beyond" aria-labelledby="h-beyond">
+        <button class="close" type="button" aria-label="Back to the desk">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+        <p class="kicker">04 · Beyond research</p>
+        <h2 id="h-beyond">Off the clock</h2>
+        <dl class="interests">
+          <dt>Go</dt>
+          <dd>I earned the highest amateur rank in <a href="https://en.wikipedia.org/wiki/Go_(game)">Go</a> at a young age, and still love playing Go and watching professional matches.</dd>
+          <dt>Calligraphy</dt>
+          <dd>I'm into calligraphy and have a top-level certificate.</dd>
+          <dt>Violin</dt>
+          <dd>I love playing the violin.</dd>
+          <dt>Games &amp; anime</dt>
+          <dd>Enjoying video games and watching anime!</dd>
+        </dl>
+      </article>
+    </div>
+
+    <video id="fusion-video" muted loop playsinline preload="none" crossorigin="anonymous" hidden>
+      <source src="../images/fusionsense/fusionsense_after.mp4" type="video/mp4">
+    </video>
+
+    <script type="module" src="js/main.js"></script>
+    <!-- Originally adapted from Jon Barron's academic website template. -->
+  </body>
+</html>
