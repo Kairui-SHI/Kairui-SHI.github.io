@@ -77,11 +77,11 @@ const FilmShader = {
 
 const LOOK = {
   day: {
-    env: 0.9, bg: 0.7, sun: 3.2, lamp: 0, exposure: 1.0, screen: 0.85, steam: 0.2,
+    env: 0.9, bg: 0.7, sun: 3.2, lamp: 0, exposure: 1.0, screen: 0.85,
     sunColor: new THREE.Color(0xfff0dc)
   },
   night: {
-    env: 0.09, bg: 0.035, sun: 0.12, lamp: 5.0, exposure: 1.08, screen: 1.25, steam: 0.13,
+    env: 0.09, bg: 0.035, sun: 0.12, lamp: 5.0, exposure: 1.08, screen: 1.25,
     sunColor: new THREE.Color(0x9fb4ff)
   }
 };
@@ -259,12 +259,9 @@ export class Desk {
     const laptop = P.laptop(ctx);
     laptop.group.position.set(0.5, 0, -0.62);
     laptop.group.rotation.y = -0.4;
-    const tea = P.teaCup(ctx);
-    tea.group.position.set(-0.21, 0, 0.34);
-    this.scene.add(go.group, frame.group, books.group, research.group, laptop.group, tea.group);
+    this.scene.add(go.group, frame.group, books.group, research.group, laptop.group);
     this.scene.updateMatrixWorld(true);
 
-    this.tea = tea;
     this.photo = research.photo;
     this.screen = laptop.screen;
 
@@ -302,13 +299,6 @@ export class Desk {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     if (this.quality.dof) {
       this.bokeh = new BokehPass(this.scene, this.camera, { focus: 1.6, aperture: 0.002, maxblur: 0.0065 });
-      // steam is a translucent card; keep it out of the depth used for focus
-      const render = this.bokeh.render.bind(this.bokeh);
-      this.bokeh.render = (...args) => {
-        this.tea.steam.visible = false;
-        render(...args);
-        this.tea.steam.visible = true;
-      };
       this.composer.addPass(this.bokeh);
     }
     this.composer.addPass(new OutputPass());
@@ -484,8 +474,6 @@ export class Desk {
     this.lights.lamp.shadow.autoUpdate = n > 0.02;
     this.renderer.toneMappingExposure = lerp(D.exposure, N.exposure);
     this.screen.emissiveIntensity = lerp(D.screen, N.screen);
-    this.tea.steamMat.uniforms.uStrength.value = lerp(D.steam, N.steam);
-    this.tea.steamMat.uniforms.uTime.value = this.reducedMotion ? 0 : t;
 
     // ---- hover
     if (!this.drag.active) {
@@ -534,9 +522,6 @@ export class Desk {
       this.camera.clearViewOffset();
     }
 
-    // ---- steam card faces the camera around its vertical axis
-    const sp = this.tea.steam.getWorldPosition(new THREE.Vector3());
-    this.tea.steam.rotation.y = Math.atan2(this.camera.position.x - sp.x, this.camera.position.z - sp.z);
 
     // ---- depth of field
     if (this.bokeh) {

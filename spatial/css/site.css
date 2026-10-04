@@ -7,6 +7,8 @@
   --link-hover: #c4632b;
   --glass: rgba(250, 247, 241, 0.76);
   --glass-border: rgba(40, 32, 22, 0.10);
+  --glass-strong: rgba(253, 251, 247, 0.94);
+  --glass-border-strong: rgba(40, 32, 22, 0.2);
   --chip: rgba(250, 247, 241, 0.62);
   --chip-active: #1b1814;
   --chip-active-text: #f6f2ea;
@@ -24,6 +26,8 @@
     --link-hover: #ffc796;
     --glass: rgba(18, 16, 14, 0.70);
     --glass-border: rgba(255, 240, 220, 0.09);
+    --glass-strong: rgba(30, 27, 24, 0.9);
+    --glass-border-strong: rgba(255, 240, 220, 0.2);
     --chip: rgba(20, 18, 16, 0.55);
     --chip-active: #f4efe7;
     --chip-active-text: #151310;
@@ -40,6 +44,8 @@
   --link-hover: #ffc796;
   --glass: rgba(18, 16, 14, 0.70);
   --glass-border: rgba(255, 240, 220, 0.09);
+  --glass-strong: rgba(30, 27, 24, 0.9);
+  --glass-border-strong: rgba(255, 240, 220, 0.2);
   --chip: rgba(20, 18, 16, 0.55);
   --chip-active: #f4efe7;
   --chip-active-text: #151310;
@@ -266,7 +272,7 @@ button { font: inherit; color: inherit; }
   pointer-events: none;
   translate: -50% calc(-100% - 6px);
   scale: 0.94;
-  transition: opacity 0.45s var(--ease), scale 0.45s var(--ease), background 0.35s ease, color 0.35s ease;
+  transition: opacity 0.45s var(--ease), scale 0.45s var(--ease), background 0.6s var(--ease), border-color 0.6s var(--ease);
   will-change: transform;
 }
 .tag::before {
@@ -279,11 +285,11 @@ button { font: inherit; color: inherit; }
   margin-top: -3px;
   border-radius: 50%;
   background: var(--link);
-  transition: background 0.35s ease;
+  transition: transform 0.6s var(--ease);
 }
 .tag.on { opacity: 1; scale: 1; pointer-events: auto; }
-.tag.hot { background: var(--chip-active); color: var(--chip-active-text); scale: 1.06; }
-.tag.hot::before { background: var(--chip-active-text); }
+.tag.hot { background: var(--glass-strong); border-color: var(--glass-border-strong); }
+.tag.hot::before { transform: scale(1.35); }
 
 /* ---------- Panels ---------- */
 
